@@ -2,7 +2,8 @@
 
 Herramienta de linea de comandos para descargar archivos xml del WebService del SAT en Mexico.
 EL SAT no cuenta con ningun mecanismo de pruebas, asi que se debe utilizar un RFC y una FIEL real y vigentes.
-La aplicacion esta escrita completame en Bash Script.
+
+La aplicacion esta escrita completame en Bash Script de Linux.
 
 ## Dependencias:
  - openssl

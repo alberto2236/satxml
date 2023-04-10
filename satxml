@@ -1,0 +1,407 @@
+#!/bin/bash
+
+# Copyright (C) 2023 Alberto Sandoval <asandoval@lizbetsoft.com.mx>. All Rights Reserved.
+# This file is licensed under the GPLv3. Please see LICENSE for more information.
+
+
+VERSION=1.0
+AUTTIME=10
+XMLPATH="/usr/share/satxml/"
+
+function usage {
+cat << EOF
+Satxml $VERSION. Herramienta de descarga masiva por linea de comandos.
+
+USO:  satxml COMANDO RFC [OPCIONES]
+
+COMANDOS
+    rfc    Inicializa/Actualiza un rfc. Requiere: -c, -k y -p
+    aut    Autentica con el WS del SAT y genera un token de conexion.
+    solE   Envia una solicitud de descarga de EMITIDOS al SAT.
+    solR   Envia una solicitud de descarga de RECIBIDOS al SAT.
+    ver    Verifica el estatus de -I o de todos los IDs si no se especifica -I
+    des    Descarga la solicitud -I o todos los IDs si no se especifica -I
+    rep    Genera reporte basico de los XML ya descargados
+
+OPCIONES
+    -k | --key     RUTA     Ruta al archivo key de la FIEL
+    -c | --cer     RUTA     Ruta al archivo cer de la FIEL
+    -p | --pass    PASS     Contraseña de la FIEL
+    -d | --dir     RUTA     Ruta donde almacenar los XML descargados
+    -I | --id      ID       ID de solicitud/descarga
+    -i | --inicio  FECHA    Fecha inicio, en formato: 2023-01-01T00:00:00
+    -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
+    -l | --list             Muestra la lista de IDs de solicitudes/descargas
+    -v | --verbose          Muestra los mensajes SOAP
+    -h                      Muestra este mensaje de ayuda
+EOF
+}
+
+function rfc {
+	RFCPATH="$HOME/.satxml/$RFC/"
+	mkdir -p $RFCPATH
+	cp $KEY $RFCPATH/key.key
+	cp $CER $RFCPATH/cer.cer
+	echo "$KEYPASS" | sed 's/pass://g' > $RFCPATH/keypass.txt
+}
+function autenticar {
+	DATESTART=`date -d '+6 hours' +%Y-%m-%dT%H:%M:00`
+	DATEEND=`date -d "+6 hours +$AUTTIME minutes" +%Y-%m-%dT%H:%M:00`
+	DIGEST=$(sed "s/--DATESTART--/$DATESTART/g" ${XMLPATH}timestamp.xml | sed "s/--DATEEND--/$DATEEND/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS 2>/dev/null
+	if [ $? -gt 0 ];then
+		echo "Error al procesar FIEL, revisa la contraseña y los archivos"
+		exit 1
+	fi
+	SIGNATURE=`base64 -w 0 /tmp/sha1.sign | sed 's=/=\\\/=g'`
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}BaseSoapAuth.xml | sed "s/--CERT--/$CERT/" | sed "s/--SIGNATURE--/$SIGNATURE/" | sed "s/--DATESTART--/$DATESTART/g" | sed "s/--DATEEND--/$DATEEND/g" > /tmp/postData.xml
+	curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.gob.mx/IAutenticacion/Autentica" -H "Content-Type: text/xml;charset=UTF-8" -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/Autenticacion/Autenticacion.svc" 2>/dev/null > /tmp/response.xml
+	if [ $? -gt 0 ];then
+		echo "Error al conectar con el SAT"
+		exit 1
+	fi
+	echo -n "Authorization: WRAP access_token=\"" > ${RFCPATH}token.h
+	sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/text()" - | tr -d '\n' >> ${RFCPATH}token.h
+	echo "\"" >> ${RFCPATH}token.h
+	if [ $VERBOSE ]; then
+		echo "***Solicitud***"
+		cat /tmp/postData.xml
+		echo "***Respuesta***"
+		cat /tmp/response.xml
+		echo
+	fi
+}
+function solicitar {
+	if [ -z "$FECHAINI" ];then
+		echo "Debe especificar una fecha inicio -i|--inicio"
+		exit 1
+	fi
+	if [ -z "$FECHAFIN" ];then
+		echo "Debe especificar una fecha fin -f|--fin"
+		exit 1
+	fi
+	[[ "$FECHAINI" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "Fecha invalida ($FECHAINI), formato requerido: 2020-12-31T23:59:59";exit 1; }
+	[[ "$FECHAFIN" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "Fecha invalida ($FECHAFIN), formato requerido: 2020-12-31T23:59:59";exit 1; }
+	autoAut
+	DIGEST=$(sed "s/--FECHAINI--/$FECHAINI/g" ${XMLPATH}solicitar.xml | sed "s/--FECHAFIN--/$FECHAFIN/g" | sed "s/--RFC--/$RFC/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS
+	if [ $? -gt 0 ];then
+		echo "Error al procesar FIEL, revisa la contraseña y los archivos"
+		exit 1
+	fi
+	SIGNATURE=`base64 -w 0 /tmp/sha1.sign | sed 's=/=\\\/=g'`
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}BaseSoapSol$1.xml | sed "s/--CERT--/$CERT/" | sed "s/--SIGNATURE--/$SIGNATURE/" | sed "s/--FECHAINI--/$FECHAINI/g" | sed "s/--FECHAFIN--/$FECHAFIN/g" | sed "s/--RFC--/$RFC/g" | sed "s/--SERIAL--/$SERIAL/g" > /tmp/postData.xml
+	curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescarga" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/SolicitaDescargaService.svc" 2>/dev/null > /tmp/response.xml
+	if [ $? -gt 0 ];then
+		echo "Error al conectar con el SAT"
+		exit 1
+	fi
+	if [ $VERBOSE ]; then
+		echo "***Solicitud***"
+		cat /tmp/postData.xml
+		echo "***Respuesta***"
+		cat /tmp/response.xml
+		echo
+	fi
+	eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@CodEstatus" -`
+	if [ "$CodEstatus" == "5000" ]; then
+		eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@IdSolicitud" -`
+		echo $IdSolicitud
+		echo $IdSolicitud >> ${RFCPATH}solicitudes.txt
+	else
+		eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@Mensaje" -`
+		echo "ERROR: $Mensaje"
+	fi
+}
+function verificarTodo {
+	while read linea; do
+		ID=$linea
+		echo -n "$ID ... "
+		echo `verificar`
+	done < ${RFCPATH}solicitudes.txt
+}
+function verificar {
+	if [ -z "$ID" ];then
+		echo "Debe especificar un ID -I|--id"
+		exit 1
+	fi
+	autoAut
+	DIGEST=$(sed "s/--SOLID--/$ID/g" ${XMLPATH}verificar.xml | sed "s/--RFC--/$RFC/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS
+	if [ $? -gt 0 ];then
+		echo "Error al procesar FIEL, revisa la contraseña y los archivos"
+		exit 1
+	fi
+	SIGNATURE=`base64 -w 0 /tmp/sha1.sign | sed 's=/=\\\/=g'`
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}BaseSoapVerif.xml | sed "s/--CERT--/$CERT/" | sed "s/--SIGNATURE--/$SIGNATURE/" | sed "s/--SOLID--/$ID/g" | sed "s/--RFC--/$RFC/g" | sed "s/--SERIAL--/$SERIAL/g" > /tmp/postData.xml
+	curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/IVerificaSolicitudDescargaService/VerificaSolicitudDescarga" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/VerificaSolicitudDescargaService.svc" 2>/dev/null > /tmp/response.xml
+	if [ $? -gt 0 ];then
+		echo "Error al conectar con el SAT"
+		exit 1
+	fi
+	if [ $VERBOSE ]; then
+		echo "***Solicitud***"
+		cat /tmp/postData.xml
+		echo "***Respuesta***"
+		cat /tmp/response.xml
+		echo
+	fi
+	eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@CodEstatus" -`
+	eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@EstadoSolicitud" -`
+	if [ "$CodEstatus" == "5000" ]; then
+		case $EstadoSolicitud in
+			1)
+				echo "Solicitud aceptada"
+			;;
+			2)
+				echo "Solicitud en proceso"
+			;;
+			3)
+				#eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@NumeroCFDIs" -`
+				IDDESCARGA=`sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/*/text()" -`
+				echo "$IDDESCARGA"
+				echo "$IDDESCARGA" >> ${RFCPATH}idsdescarga.txt
+				sed -i "/$ID/d" ${RFCPATH}solicitudes.txt
+			;;
+			4)
+				echo "ERROR SAT"
+			;;
+			5)
+				echo "Solicitud rechazada"
+			;;
+			6)
+				echo "Solicitud vencida"
+			;;
+		#...
+			*)
+				echo "Estado de solicitud desconocido"
+			;;
+		esac
+	else
+		eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Body/*/*/@Mensaje" -`
+		echo "ERROR: $Mensaje"
+	fi
+}
+function descargarTodo {
+	while read linea; do
+		ID=$linea
+		echo -n "$ID ... "
+		echo `descargar`
+	done < ${RFCPATH}idsdescarga.txt
+}
+function descargar {
+	if [ -z "$ID" ];then
+		echo "Debe especificar un ID -I|--id"
+		exit 1
+	fi
+	autoAut
+	DIGEST=$(sed "s/--DESCID--/$ID/g" ${XMLPATH}descargar.xml | sed "s/--RFC--/$RFC/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS
+	if [ $? -gt 0 ];then
+		echo "Error al procesar FIEL, revisa la contraseña y los archivos"
+		exit 1
+	fi
+	SIGNATURE=`base64 -w 0 /tmp/sha1.sign | sed 's=/=\\\/=g'`
+	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}BaseSoapDesc.xml | sed "s/--CERT--/$CERT/" | sed "s/--SIGNATURE--/$SIGNATURE/" | sed "s/--DESCID--/$ID/g" | sed "s/--RFC--/$RFC/g" | sed "s/--SERIAL--/$SERIAL/g" > /tmp/postData.xml
+	curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/IDescargaMasivaTercerosService/Descargar" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasiva.clouda.sat.gob.mx/DescargaMasivaService.svc" 2>/dev/null > /tmp/response.xml
+	if [ $? -gt 0 ];then
+		echo "Error al conectar con el SAT"
+		exit 1
+	fi
+	if [ $VERBOSE ]; then
+		echo "***Solicitud***"
+		cat /tmp/postData.xml
+		echo "***Respuesta***"
+		cat /tmp/response.xml
+		echo
+	fi
+	eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Header/*/@CodEstatus" -`
+	if [ "$CodEstatus" == "5000" ]; then
+		sed -i "/$ID/d" ${RFCPATH}idsdescarga.txt
+		sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath '/Envelope/Body/*/*/text()' - | base64 -d > ${DOWNPATH}files.zip
+		if [ ${DOWNPATH} == ${RFCPATH} ]; then
+			unzip -o ${DOWNPATH}files.zip -d ${DOWNPATH}xmls 1>/dev/null
+		else
+			unzip -o ${DOWNPATH}files.zip -d ${DOWNPATH} 1>/dev/null
+		fi
+		TOTAL=`unzip -l ${DOWNPATH}files.zip | wc -l`
+		echo $(($TOTAL-5))
+		rm ${DOWNPATH}files.zip
+	else
+		sed -i "/$ID/d" ${RFCPATH}idsdescarga.txt
+		eval `sed 's/<\/.:/<\//g' /tmp/response.xml | sed 's/<.:/</g' | xmllint --xpath "/Envelope/Header/*/@Mensaje" -`
+		echo "ERROR: $Mensaje"
+	fi
+}
+function reporte {
+	TOTAL=0
+	for archivo in ${RFCPATH}xmls/*.xml; do
+		xmllint $archivo --xpath "concat(string(//@TipoDeComprobante),'|',string(//@Serie),string(//@Folio),'|',string(//@Fecha),'|',string(//*[local-name()='Emisor']/@Nombre),'|',string(//*[local-name()='Receptor']/@Nombre),'|',string(//@Total)+concat('0',string(//*[local-name()='Complemento']/*[local-name()='Pagos']/*[local-name()='Totales']/@MontoTotalPagos)))"
+		TOTAL=$(($TOTAL+1))
+	done
+	echo "--------------"
+	echo $TOTAL
+}
+
+function validarRfc {
+	if [ ! -d "$RFCPATH" ]; then
+		RFCPATH="/tmp/$RFC/"
+		if [ ! -d "$RFCPATH" ]; then
+			mkdir $RFCPATH
+		fi
+	fi
+
+	[ -e "$KEY" ]	|| { echo "Se requiere el archivo *.key de la FIEL de $RFC"; ERR=1; }
+	[ -e "$CER" ]	|| { echo "Se requiere el archivo *.cer de la FIEL de $RFC"; ERR=1; }
+	[ -n "$KEYPASS" ]	|| { echo "Se requiere la contraseña de la FIEL de $RFC"; ERR=1; }
+	
+	if [ "$ERR" == 1 ]; then
+		exit 1
+	fi
+}
+function autoAut {
+	if ! test -e ${RFCPATH}token.h || test "`find ${RFCPATH}token.h -mmin +$AUTTIME 2>/dev/null`"; then
+		autenticar
+	fi
+}
+
+###Params parsing
+POSITIONAL_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -k|--key)
+      KEY=$2
+      shift 2
+      ;;
+    -c|--cer)
+      CER=$2
+      shift 2
+      ;;
+    -p|--pass)
+      KEYPASS="pass:$2"
+      shift 2
+      ;;
+    -d|--dir)
+      DOWNPATH="$2/"
+      shift 2
+      ;;
+    -I|--id)
+      ID=$2
+      shift 2
+      ;;
+    -i|--inicio)
+      FECHAINI=$2
+      shift 2
+      ;;
+    -f|--fin)
+      FECHAFIN=$2
+      shift 2
+      ;;
+    -v|--verbose)
+      VERBOSE=true
+      shift
+      ;;
+    -l|--list)
+      LIST=true
+      shift
+      ;;
+    -h|--help)
+			usage
+			exit
+      shift
+      ;;
+    -*|--*)
+			echo "Opcion desconocida $1"
+			exit 1
+      shift
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift
+      ;;
+  esac
+done
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+if [ "$1" == "rfc" ] && [ "$LIST" == "true" ]; then
+	if [ $# -lt 1 ]; then
+		usage
+		exit
+	fi
+else
+	if [ $# -lt 2 ]; then
+		usage
+		exit
+	fi
+fi
+
+CMD=$1
+RFC=$2
+RFCPATH="$HOME/.satxml/$RFC/"
+if [ "$CMD" != "rfc" ]; then
+	if [ -z "$KEY" ]; then
+		KEY="${RFCPATH}key.key"
+	fi
+	if [ -z "$CER" ]; then
+		CER="${RFCPATH}cer.cer"
+	fi
+	if [ -z "$KEYPASS" ]; then
+		KEYPASS="file:${RFCPATH}keypass.txt"
+	fi
+fi
+
+if [ -z "$DOWNPATH" ]; then
+	DOWNPATH="${RFCPATH}"
+fi
+
+if [ -z "$LIST" ];then
+	validarRfc
+	CERT=`openssl x509 -in $CER | tail -n +2 | head -n -1 | tr -d '\n' | sed 's=/=\\\/=g'`
+	eval `openssl x509 -noout -serial -in $CER`
+	SERIAL=`echo "obase=10; ibase=16; $serial" | bc`
+fi
+
+
+case $CMD in
+	rfc)
+		if [ -n "$LIST" ];then
+			ls -1 -S "$HOME/.satxml" 2>/dev/null
+		else
+			rfc
+		fi
+		;;
+	aut)
+		autenticar
+		;;
+	solE)
+		solicitar "E"
+		;;
+	solR)
+		solicitar "R"
+		;;
+	ver)
+		if [ -n "$LIST" ];then
+			cat ${RFCPATH}solicitudes.txt
+		elif [ -z "$ID" ];then
+			verificarTodo
+		else
+			verificar
+		fi
+		;;
+	des)
+		if [ -n "$LIST" ];then
+			cat ${RFCPATH}idsdescarga.txt
+		#Falta validar -d para inline
+		elif [ -z "$ID" ];then
+			descargarTodo
+		else
+			descargar
+		fi
+		;;
+	rep)
+		reporte
+		;;
+	*)
+		echo "Comando desconocido"
+		;;
+esac

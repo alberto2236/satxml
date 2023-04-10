@@ -165,12 +165,15 @@ function verificar {
 			;;
 			4)
 				echo "ERROR SAT"
+				sed -i "/$ID/d" ${RFCPATH}solicitudes.txt
 			;;
 			5)
 				echo "Solicitud rechazada"
+				sed -i "/$ID/d" ${RFCPATH}solicitudes.txt
 			;;
 			6)
 				echo "Solicitud vencida"
+				sed -i "/$ID/d" ${RFCPATH}solicitudes.txt
 			;;
 		#...
 			*)

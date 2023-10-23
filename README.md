@@ -13,6 +13,8 @@ La aplicacion esta escrita completame en Bash Script de Linux.
 
 ## Installation
 ``` bash
+git clone https://github.com/alberto2236/satxml.git
+cd satxml
 sudo make install
 ```
   

@@ -10,6 +10,7 @@ La aplicacion esta escrita completame en Bash Script de Linux.
  - curl
  - xmllint
  - unzip
+ - make
 
 ## Installation
 ``` bash

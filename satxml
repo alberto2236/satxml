@@ -33,7 +33,7 @@ OPCIONES
     -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
     -l | --list             Muestra la lista de IDs de solicitudes/descargas
     -v | --verbose          Muestra los mensajes SOAP
-    -t | --test          		Verifica las dependencias necesarias del sistema
+    -t | --test          	Verifica las dependencias necesarias del sistema
     -h                      Muestra este mensaje de ayuda
 EOF
 }

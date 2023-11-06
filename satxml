@@ -33,6 +33,7 @@ OPCIONES
     -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
     -l | --list             Muestra la lista de IDs de solicitudes/descargas
     -v | --verbose          Muestra los mensajes SOAP
+    -t | --test          		Verifica las dependencias necesarias del sistema
     -h                      Muestra este mensaje de ayuda
 EOF
 }
@@ -267,6 +268,42 @@ function autoAut {
 		autenticar
 	fi
 }
+function dep {
+	echo -n "Searching for xmllint... "
+	xmllint --version &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+
+	echo -n "Searching for openssl... "
+	openssl version &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+
+	echo -n "Searching for curl... "
+	curl --version &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+
+	echo -n "Searching for unzip... "
+	unzip -v &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+}
 
 ###Params parsing
 POSITIONAL_ARGS=()
@@ -310,6 +347,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
 			usage
+			exit
+      shift
+      ;;
+    -t|--test)
+			dep
 			exit
       shift
       ;;
@@ -375,6 +417,9 @@ case $CMD in
 		;;
 	aut)
 		autenticar
+		;;
+	dep)
+		dep
 		;;
 	solE)
 		solicitar "E"

@@ -1,6 +1,6 @@
 install:
 	mkdir -p /usr/share/satxml
-	cp fields /usr/share/satxml/fields
+	cp campos /usr/share/satxml/campos
 	cp xml/* /usr/share/satxml
 	cp satxml /usr/bin/satxml
 uninstall:

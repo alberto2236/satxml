@@ -21,6 +21,7 @@ COMANDOS
     solR   Envia una solicitud de descarga de RECIBIDOS al SAT.
     ver    Verifica el estatus de -I o de todos los IDs si no se especifica -I
     des    Descarga la solicitud -I o todos los IDs si no se especifica -I
+	rbd    Reconstruye la base de datos en segun al archivo "campos" y los XML ya descargados
     rep    Genera reporte basico de los XML ya descargados
 
 OPCIONES
@@ -38,6 +39,10 @@ OPCIONES
 EOF
 }
 
+function iniciarBD {
+	echo "CREATE TABLE cfdis (id CHAR(30) PRIMARY KEY,archivo CHAR(50),`cut -d " " -f1,2 ${XMLPATH}campos | sed "s/$/,/g"`);" | sed "s/,)/)/" | sqlite3 "$RFCPATH/db" &>/dev/null
+}
+
 function rfc {
 	RFCPATH="$HOME/.satxml/$RFC/"
 	mkdir -p $RFCPATH
@@ -45,7 +50,7 @@ function rfc {
 	cp $CER $RFCPATH/cer.cer
 	echo "$KEYPASS" | sed 's/pass://g' > $RFCPATH/keypass.txt
 	if [ ! -f "$RFCPATH/db" ]; then
-		echo "CREATE TABLE cfdis (id CHAR(30) PRIMARY KEY,archivo CHAR(50),`cut -d " " -f1,2 ${XMLPATH}campos | sed "s/$/,/g"`);" | sed "s/,)/)/" | sqlite3 "$RFCPATH/db" &>/dev/null
+		iniciarBD
 	fi
 }
 function autenticar {
@@ -251,6 +256,19 @@ function insertarEnBD {
 			xmllint <(sed "s/cfdi://g;s/tfd://g" $archivo) --xpath "concat(\"INSERT INTO cfdis (id,archivo,`cut -d " " -f1 ${XMLPATH}campos | sed "s/$/,/g" | tr -d "\n"`) VALUES('\",string(/Comprobante/Complemento/TimbreFiscalDigital/@UUID),\"','`basename $archivo`','\",`cut -d " " -f3 ${XMLPATH}campos | sed "s/$/,\\"','\\",/g" | tr -d "\n"`\");\")" | sed "s/,')/)/g" | sed "s/,)/)/" | sqlite3 "$RFCPATH/db" 2>/dev/null
 		done
 	fi
+}
+
+function reconstruirBaseDatos {
+	rm "$RFCPATH/db" 2>/dev/null
+	iniciarBD
+	total=`ls ${DOWNPATH}xmls/*.xml -1 | wc -l`
+	actual=1
+	for archivo in ${DOWNPATH}xmls/*.xml; do
+		printf "\r%i/%s" $actual $total
+		xmllint <(sed "s/cfdi://g;s/tfd://g" $archivo) --xpath "concat(\"INSERT INTO cfdis (id,archivo,`cut -d " " -f1 ${XMLPATH}campos | sed "s/$/,/g" | tr -d "\n"`) VALUES('\",string(/Comprobante/Complemento/TimbreFiscalDigital/@UUID),\"','`basename $archivo`','\",`cut -d " " -f3 ${XMLPATH}campos | sed "s/$/,\\"','\\",/g" | tr -d "\n"`\");\")" | sed "s/,')/)/g" | sed "s/,)/)/" | sqlite3 "$RFCPATH/db" 2>/dev/null
+		actual=$(($actual+1))
+	done
+	echo
 }
 
 function reporte {
@@ -478,6 +496,9 @@ case $CMD in
 		;;
 	rep)
 		reporte
+		;;
+	rbd)
+		reconstruirBaseDatos
 		;;
 	*)
 		echo "Comando desconocido"

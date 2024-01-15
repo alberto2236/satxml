@@ -11,8 +11,9 @@ La aplicacion esta escrita completame en Bash Script de Linux.
  - xmllint
  - unzip
  - make
+ - sqlite3 (opcional para generar base de datos de las descargas)
 
-## Installation
+## Instalacion
 ``` bash
 git clone https://github.com/alberto2236/satxml.git
 cd satxml

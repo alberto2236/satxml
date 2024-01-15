@@ -291,7 +291,7 @@ function autoAut {
 	fi
 }
 function dep {
-	echo -n "Searching for xmllint... "
+	echo -n "Buscando xmllint ... "
 	xmllint --version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
@@ -300,7 +300,7 @@ function dep {
 	fi
 
 
-	echo -n "Searching for openssl... "
+	echo -n "Buscando openssl ... "
 	openssl version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
@@ -309,7 +309,7 @@ function dep {
 	fi
 
 
-	echo -n "Searching for curl... "
+	echo -n "Buscando curl ... "
 	curl --version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
@@ -318,8 +318,16 @@ function dep {
 	fi
 
 
-	echo -n "Searching for unzip... "
+	echo -n "Buscando unzip ... "
 	unzip -v &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+	echo -n "Buscando sqlite3 ... "
+	sqlite3 -version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
 	else

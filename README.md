@@ -44,7 +44,7 @@ La aplicacion puede generar un unico reporte basico de los XML que ya tenga desc
 ``` bash
 satxml rep XAXX010101000
 ```
-Podemos ssolicitar un reporte personalizado especificando un query propio:
+Podemos solicitar un reporte personalizado especificando un query propio:
 ``` bash
 satxml rep XAXX010101000 -q "SELECT * FROM cfdis WHERE tipo='P'"
 ```
@@ -57,9 +57,9 @@ La estructura del archivo campos, es:
 nombre tipo xpath
 ```
 Donde:
-    nombre: es un nombre de campo definido por el usuario
-    tipo: el tipo de campo en la basse de datos SQLite3
-    xpath: una exprecion xpath para extraer el valor deseado de cada XML
+ - nombre: es un nombre de campo definido por el usuario
+ - tipo: el tipo de campo en la basse de datos SQLite3
+ - xpath: una expresión xpath para extraer el valor deseado de cada XML
 
 Ejemplo:
 ```

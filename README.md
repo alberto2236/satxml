@@ -44,3 +44,34 @@ La aplicacion puede generar un unico reporte basico de los XML que ya tenga desc
 ``` bash
 satxml rep XAXX010101000
 ```
+Podemos ssolicitar un reporte personalizado especificando un query propio:
+``` bash
+satxml rep XAXX010101000 -q "SELECT * FROM cfdis WHERE tipo='P'"
+```
+
+# Base de datos
+La aplicacion satxml genera una base de datos SQLite3 por cada RFC en el directorio ~/.satxml/RFC/db en base a los campos definidos en /usr/share/satxml/campos o ~/.satxml/campos. A la cual podemos conectar desde cualquier otro lenguaje como python, java, etc...
+
+La estructura del archivo campos, es:
+```
+nombre tipo xpath
+```
+Donde:
+    nombre: es un nombre de campo definido por el usuario
+    tipo: el tipo de campo en la basse de datos SQLite3
+    xpath: una exprecion xpath para extraer el valor deseado de cada XML
+
+Ejemplo:
+```
+emisor CHAR(50) string(//Emisor/@Nombre)
+```
+
+Podemos probar la expresión xpath con algun xml y el siguiente comando
+``` bash
+sed 's/cfdi://g' /ruta/archivo/xml | xmllint --xpath 'string(//Emisor/@Nombre)' -
+```
+
+NOTA: si modificamos el archivo campos sera necesario ejecutar el siguiente comando por cada RFC registrado. Para reconstruir la base de datos con los nuevos campos y no tener errores al descargar nuevos CFDIs del SAT.
+``` bash
+satxml rbd RFC
+```

@@ -8,6 +8,7 @@ VERSION=1.1
 AUTTIME=10
 XMLPATH="/usr/share/satxml/"
 FIELDS=${XMLPATH}campos
+QUERY='SELECT * FROM cfdis'
 if [ -f ~/.satxml/campos ]
 then
 	FIELDS=~/.satxml/campos
@@ -27,8 +28,8 @@ COMANDOS
     solR   Envia una solicitud de descarga de RECIBIDOS al SAT.
     ver    Verifica el estatus de -I o de todos los IDs si no se especifica -I
     des    Descarga la solicitud -I o todos los IDs si no se especifica -I
-    rbd    Reconstruye la base de datos en segun al archivo "campos" y los XML ya descargados
-    rep    Genera reporte basico de los XML ya descargados
+    rbd    Reconstruye la base de datos segun al archivo "campos" y los XML ya descargados.
+    rep    Genera reporte basico de los XML ya descargados.
 
 OPCIONES
     -k | --key     RUTA     Ruta al archivo key de la FIEL
@@ -38,6 +39,7 @@ OPCIONES
     -I | --id      ID       ID de solicitud/descarga
     -i | --inicio  FECHA    Fecha inicio, en formato: 2023-01-01T00:00:00
     -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
+	-q | --query   QUERY    Query para generar el reporte
     -l | --list             Muestra la lista de IDs de solicitudes/descargas
     -v | --verbose          Muestra los mensajes SOAP
     -t | --test             Verifica las dependencias necesarias del sistema
@@ -279,9 +281,9 @@ function reconstruirBaseDatos {
 
 function reporte {
 	if [ -f "$RFCPATH/db" ]; then
-		echo "SELECT * FROM cfdis" | sqlite3 "$RFCPATH/db"
+		echo "$QUERY" | sqlite3 "$RFCPATH/db"
 		echo "--------------"
-		echo "SELECT count(*) FROM cfdis" | sqlite3 "$RFCPATH/db"
+		echo "$QUERY" | sqlite3 "$RFCPATH/db" | wc -l
 	else
 		TOTAL=0
 		for archivo in ${RFCPATH}xmls/*.xml; do
@@ -389,6 +391,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -f|--fin)
       FECHAFIN=$2
+      shift 2
+      ;;
+	-q|--query)
+      QUERY=$2
       shift 2
       ;;
     -v|--verbose)
@@ -507,6 +513,6 @@ case $CMD in
 		reconstruirBaseDatos
 		;;
 	*)
-		echo "Comando desconocido"
+		echo "satxml: Comando desconocido"
 		;;
 esac

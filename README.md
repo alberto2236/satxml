@@ -49,6 +49,10 @@ Podemos solicitar un reporte personalizado especificando un query propio:
 satxml rep XAXX010101000 -q "SELECT * FROM cfdis WHERE tipo='P'"
 ```
 
+## Video tutorial
+[Ver video](https://youtu.be/NcfhxeH4zbw)
+
+
 # Base de datos
 La aplicacion satxml genera una base de datos SQLite3 por cada RFC en el directorio ~/.satxml/RFC/db en base a los campos definidos en /usr/share/satxml/campos o ~/.satxml/campos. A la cual podemos conectar desde cualquier otro lenguaje como python, java, etc...
 

@@ -58,7 +58,7 @@ nombre tipo xpath
 ```
 Donde:
  - nombre: es un nombre de campo definido por el usuario
- - tipo: el tipo de campo en la basse de datos SQLite3
+ - tipo: el tipo de campo en la base de datos SQLite3
  - xpath: una expresión xpath para extraer el valor deseado de cada XML
 
 Ejemplo:

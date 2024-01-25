@@ -8,7 +8,7 @@ VERSION=1.1
 AUTTIME=10
 XMLPATH="/usr/share/satxml/"
 FIELDS=${XMLPATH}campos
-QUERY='SELECT * FROM cfdis'
+QUERY='SELECT * FROM cfdis ORDER BY fecha ASC'
 if [ -f ~/.satxml/campos ]
 then
 	FIELDS=~/.satxml/campos

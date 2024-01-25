@@ -1,5 +1,6 @@
 tipo CHAR(5) string(//@TipoDeComprobante)
 folio CHAR(25) concat(string(//@Serie),string(//@Folio))
+fecha CHAR(20) string(//@Fecha)
 emisor CHAR(50) string(//Emisor/@Nombre)
 receptor CHAR(50) string(//Receptor/@Nombre)
 total DOUBLE string(//@Total)

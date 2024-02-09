@@ -39,7 +39,7 @@ OPCIONES
     -I | --id      ID       ID de solicitud/descarga
     -i | --inicio  FECHA    Fecha inicio, en formato: 2023-01-01T00:00:00
     -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
-	-q | --query   QUERY    Query para generar el reporte
+    -q | --query   QUERY    Query para generar el reporte
     -l | --list             Muestra la lista de IDs de solicitudes/descargas
     -v | --verbose          Muestra los mensajes SOAP
     -t | --test             Verifica las dependencias necesarias del sistema

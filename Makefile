@@ -6,3 +6,4 @@ install:
 uninstall:
 	rm -r /usr/share/satxml
 	rm /usr/bin/satxml
+ 

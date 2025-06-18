@@ -100,7 +100,7 @@ function solicitar {
 	[[ "$FECHAINI" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "Fecha invalida ($FECHAINI), formato requerido: 2020-12-31T23:59:59";exit 1; }
 	[[ "$FECHAFIN" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "Fecha invalida ($FECHAFIN), formato requerido: 2020-12-31T23:59:59";exit 1; }
 	autoAut
-	DIGEST=$(sed "s/--FECHAINI--/$FECHAINI/g" ${XMLPATH}solicitar.xml | sed "s/--FECHAFIN--/$FECHAFIN/g" | sed "s/--RFC--/$RFC/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
+	DIGEST=$(sed "s/--FECHAINI--/$FECHAINI/g" ${XMLPATH}solicitar$1.xml | sed "s/--FECHAFIN--/$FECHAFIN/g" | sed "s/--RFC--/$RFC/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
 	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS
 	if [ $? -gt 0 ];then
 		echo "Error al procesar FIEL, revisa la contraseña y los archivos"
@@ -108,7 +108,11 @@ function solicitar {
 	fi
 	SIGNATURE=`base64 -w 0 /tmp/sha1.sign | sed 's=/=\\\/=g'`
 	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}BaseSoapSol$1.xml | sed "s/--CERT--/$CERT/" | sed "s/--SIGNATURE--/$SIGNATURE/" | sed "s/--FECHAINI--/$FECHAINI/g" | sed "s/--FECHAFIN--/$FECHAFIN/g" | sed "s/--RFC--/$RFC/g" | sed "s/--SERIAL--/$SERIAL/g" > /tmp/postData.xml
-	curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescarga" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/SolicitaDescargaService.svc" 2>/dev/null > /tmp/response.xml
+	if [ "$1" == "E" ]; then
+		curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescargaEmitidos" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/SolicitaDescargaService.svc" 2>/dev/null > /tmp/response.xml
+	else
+		curl -X POST -H "SOAPAction: http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescargaRecibidos" -H "Content-Type: text/xml;charset=UTF-8" -H @${RFCPATH}token.h -d @/tmp/postData.xml "https://cfdidescargamasivasolicitud.clouda.sat.gob.mx/SolicitaDescargaService.svc" 2>/dev/null > /tmp/response.xml
+	fi
 	if [ $? -gt 0 ];then
 		echo "Error al conectar con el SAT"
 		exit 1

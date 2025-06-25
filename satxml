@@ -4,7 +4,7 @@
 # This file is licensed under the GPLv3. Please see LICENSE for more information.
 
 
-VERSION=1.2
+VERSION=1.3
 AUTTIME=10
 XMLPATH="/usr/share/satxml/"
 FIELDS=${XMLPATH}campos
@@ -24,8 +24,8 @@ USO:  satxml COMANDO RFC [OPCIONES]
 COMANDOS
     rfc    Inicializa/Actualiza un rfc. Requiere: -c, -k y -p
     aut    Autentica con el WS del SAT y genera un token de conexion.
-    solE   Envia una solicitud de descarga de EMITIDOS al SAT.
-    solR   Envia una solicitud de descarga de RECIBIDOS al SAT.
+    solE   Solicitud de descarga de EMITIDOS requiere -P o (-i y -f).
+    solR   Solicitud de descarga de RECIBIDOS requiere -P o (-i y -f).
     ver    Verifica el estatus de -I o de todos los IDs si no se especifica -I
     des    Descarga la solicitud -I o todos los IDs si no se especifica -I
     rbd    Reconstruye la base de datos segun al archivo "campos" y los XML ya descargados.
@@ -39,6 +39,8 @@ OPCIONES
     -I | --id      ID       ID de solicitud/descarga
     -i | --inicio  FECHA    Fecha inicio, en formato: 2023-01-01T00:00:00
     -f | --fin     FECHA    Fecha fin, en formato: 2023-01-31T23:59:59
+    -P | --periodo PERIODO  1 Ultimas 24 horas, 2 Ultimas 48 horas, 3 Ultimas 72 horas, etc...
+                            hoy, semana, mes o año
     -q | --query   QUERY    Query para generar el reporte
     -l | --list             Muestra la lista de IDs de solicitudes/descargas
     -v | --verbose          Muestra los mensajes SOAP
@@ -90,11 +92,11 @@ function autenticar {
 }
 function solicitar {
 	if [ -z "$FECHAINI" ];then
-		echo "Debe especificar una fecha inicio -i|--inicio"
+		echo "Debe especificar una fecha inicio -i|--inicio o un periodo -P"
 		exit 1
 	fi
 	if [ -z "$FECHAFIN" ];then
-		echo "Debe especificar una fecha fin -f|--fin"
+		echo "Debe especificar una fecha fin -f|--fin o un periodo -P"
 		exit 1
 	fi
 	[[ "$FECHAINI" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "Fecha invalida ($FECHAINI), formato requerido: 2020-12-31T23:59:59";exit 1; }
@@ -339,7 +341,7 @@ function dep {
 	fi
 
 
-	echo -n "Buscando curl ... "
+	echo -n "Buscando curl    ... "
 	curl --version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
@@ -348,8 +350,24 @@ function dep {
 	fi
 
 
-	echo -n "Buscando unzip ... "
+	echo -n "Buscando unzip   ... "
 	unzip -v &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+	echo -n "Buscando sed     ... "
+	sed --version &>/dev/null
+	if [[ $? == 0 ]]; then
+		echo "ok"
+	else
+		echo "error"
+	fi
+
+	echo -n "Buscando base64  ... "
+	base64 --version &>/dev/null
 	if [[ $? == 0 ]]; then
 		echo "ok"
 	else
@@ -395,6 +413,31 @@ while [[ $# -gt 0 ]]; do
       ;;
     -f|--fin)
       FECHAFIN=$2
+      shift 2
+      ;;
+    -P|--periodo)
+	  case $2 in
+	  	"hoy")
+			FECHAINI=`date +%Y-%m-%dT00:00:00`
+			FECHAFIN=`date +%Y-%m-%dT23:59:59`
+			;;
+		"semana")
+			FECHAINI=`date -d "last Monday" +%Y-%m-%dT00:00:00`
+			FECHAFIN=`date -d "last Monday +6 day" +%Y-%m-%dT23:59:59`
+			;;
+		"mes")
+			FECHAINI=`date +%Y-%m-01T00:00:00`
+			FECHAFIN=`date -d "$(date +%m)/1 +1 month -1 day" +%Y-%m-%dT23:59:59`
+			;;
+		"año")
+			FECHAINI=`date +%Y-01-01T00:00:00`
+			FECHAFIN=`date +%Y-12-31T23:59:59`
+			;;
+	  	*)
+			FECHAFIN=`date +%Y-%m-%dT%H:%M:00`
+			FECHAINI=`date -d "-$2 days" +%Y-%m-%dT%H:%M:00`
+			;;
+	  esac
       shift 2
       ;;
 	-q|--query)

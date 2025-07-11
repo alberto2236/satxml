@@ -64,8 +64,8 @@ function rfc {
 	fi
 }
 function autenticar {
-	DATESTART=`date -d '+6 hours' +%Y-%m-%dT%H:%M:00`
-	DATEEND=`date -d "+6 hours +$AUTTIME minutes" +%Y-%m-%dT%H:%M:00`
+	DATESTART=`date -u +%Y-%m-%dT%H:%M:00`
+	DATEEND=`date -u -d "+$AUTTIME minutes" +%Y-%m-%dT%H:%M:00`
 	DIGEST=$(sed "s/--DATESTART--/$DATESTART/g" ${XMLPATH}timestamp.xml | sed "s/--DATEEND--/$DATEEND/g" | openssl sha1 -binary | base64 | sed 's=/=\\\/=g')
 	sed "s/--DIGEST--/$DIGEST/" ${XMLPATH}signedinfo.xml | openssl dgst -sha1 -sign $KEY -out /tmp/sha1.sign -passin $KEYPASS 2>/dev/null
 	if [ $? -gt 0 ];then

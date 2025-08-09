@@ -4,7 +4,7 @@
 # This file is licensed under the GPLv3. Please see LICENSE for more information.
 
 
-VERSION=1.3
+VERSION=1.4
 AUTTIME=10
 XMLPATH="/usr/share/satxml/"
 FIELDS=${XMLPATH}campos
@@ -488,8 +488,8 @@ else
 fi
 
 CMD=$1
-RFC=$2
-RFCPATH="$HOME/.satxml/$RFC/"
+RFC=`openssl x509 -in ~/.satxml/$2/cer.cer -subject -noout | cut -d',' -f6 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' '`
+RFCPATH="$HOME/.satxml/$2/"
 if [ "$CMD" != "rfc" ]; then
 	if [ -z "$KEY" ]; then
 		KEY="${RFCPATH}key.key"

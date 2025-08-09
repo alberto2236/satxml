@@ -488,7 +488,6 @@ else
 fi
 
 CMD=$1
-RFC=`openssl x509 -in ~/.satxml/$2/cer.cer -subject -noout | cut -d',' -f6 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' '`
 RFCPATH="$HOME/.satxml/$2/"
 if [ "$CMD" != "rfc" ]; then
 	if [ -z "$KEY" ]; then
@@ -500,6 +499,9 @@ if [ "$CMD" != "rfc" ]; then
 	if [ -z "$KEYPASS" ]; then
 		KEYPASS="file:${RFCPATH}keypass.txt"
 	fi
+	RFC=`openssl x509 -in $CER -subject -noout | cut -d',' -f6 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' '`
+else
+	RFC=$2
 fi
 
 if [ -z "$DOWNPATH" ]; then

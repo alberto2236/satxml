@@ -4,7 +4,7 @@
 # This file is licensed under the GPLv3. Please see LICENSE for more information.
 
 
-VERSION=1.4
+VERSION=1.5
 AUTTIME=10
 XMLPATH="/usr/share/satxml/"
 FIELDS=${XMLPATH}campos
@@ -19,7 +19,7 @@ function usage {
 cat << EOF
 Satxml $VERSION. Herramienta de descarga masiva por linea de comandos.
 
-USO:  satxml COMANDO RFC [OPCIONES]
+USO:  satxml COMANDO ALIAS [OPCIONES]
 
 COMANDOS
     rfc    Inicializa/Actualiza un rfc. Requiere: -c, -k y -p
@@ -423,15 +423,15 @@ while [[ $# -gt 0 ]]; do
 			;;
 		"semana")
 			FECHAINI=`date -d "last Monday" +%Y-%m-%dT00:00:00`
-			FECHAFIN=`date -d "last Monday +6 day" +%Y-%m-%dT23:59:59`
+			FECHAFIN=`date +%Y-%m-%dT23:59:59`
 			;;
 		"mes")
 			FECHAINI=`date +%Y-%m-01T00:00:00`
-			FECHAFIN=`date -d "$(date +%m)/1 +1 month -1 day" +%Y-%m-%dT23:59:59`
+			FECHAFIN=`date +%Y-%m-%dT23:59:59`
 			;;
 		"año")
 			FECHAINI=`date +%Y-01-01T00:00:00`
-			FECHAFIN=`date +%Y-12-31T23:59:59`
+			FECHAFIN=`date +%Y-%m-%dT23:59:59`
 			;;
 	  	*)
 			FECHAFIN=`date +%Y-%m-%dT%H:%M:00`
